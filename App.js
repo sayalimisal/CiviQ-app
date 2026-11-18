@@ -23,9 +23,11 @@ const categories = [
 ];
 
 
-
+const API_URL = 'https://civiq-backend-6mhf.onrender.com';
+const CITIZEN_ID = 1;
 export default function App() {
   const [reports, setReports] = useState([
+    
   {
     icon: '🛣️',
     title: 'Damaged road',
@@ -43,13 +45,19 @@ export default function App() {
     statusColor: '#B77913',
   },
 ]);
+const [officerReports, setOfficerReports] = useState([]);
+const [adminReports, setAdminReports] = useState([]);
   const [currentScreen, setCurrentScreen] = useState('home');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminFilter, setAdminFilter] = useState('All');
+ const [adminPriorityFilter, setAdminPriorityFilter] = useState('All');
+ const [adminDepartmentFilter, setAdminDepartmentFilter] = useState('All');
   const [citizenName, setCitizenName] = useState('');
 const [citizenEmail, setCitizenEmail] = useState('');
 const [citizenPassword, setCitizenPassword] = useState('');
+const [citizenId, setCitizenId] = useState(null);
 const [isCitizenSignup, setIsCitizenSignup] = useState(false);
+const [citizenPhone, setCitizenPhone] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportsLoaded, setReportsLoaded] = useState(false);
 const [issueTitle, setIssueTitle] = useState('');
@@ -63,7 +71,7 @@ const [officerPassword, setOfficerPassword] = useState('');
 const [officerSearch, setOfficerSearch] = useState('');
 const [officerStatusFilter, setOfficerStatusFilter] = useState('All');
 const [officerPriorityFilter, setOfficerPriorityFilter] = useState('All');
-const filteredOfficerReports = reports.filter((item) => {
+const filteredOfficerReports = officerReports.filter((item) => {
   const query = officerSearch.trim().toLowerCase();
 
   const searchableText =
@@ -99,7 +107,216 @@ useEffect(() => {
 
   loadReports();
 }, []);
+useEffect(() => {
+  if (!citizenId || currentScreen !== 'myReports') return;
 
+  const fetchCitizenReports = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/citizens/${citizenId}/complaints`
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+       throw new Error(
+  typeof result.detail === 'string'
+    ? result.detail
+    : JSON.stringify(result.detail || result)
+);
+      }
+
+      const complaints = Array.isArray(result)
+        ? result
+        : result.complaints || [];
+
+      const formattedReports = complaints.map((item) => {
+        const categoryName = item.category || 'Other';
+        const backendStatus = (item.status || 'PENDING').toUpperCase();
+
+        const statusMap = {
+          PENDING: 'Submitted',
+          ASSIGNED: 'Assigned',
+          IN_PROGRESS: 'In Progress',
+          RESOLVED: 'Resolved',
+          CONFIRMED: 'Resolved',
+          CLOSED: 'Resolved',
+          REOPENED: 'Submitted',
+        };
+
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.description || '',
+          category: categoryName,
+          priority: item.priority || 'MEDIUM',
+          status: statusMap[backendStatus] || item.status,
+          location: item.address ||
+            (item.latitude && item.longitude
+              ? `${item.latitude}, ${item.longitude}`
+              : 'Not provided'),
+          icon: categoryName.toLowerCase().includes('water')
+            ? '💧'
+            : categoryName.toLowerCase().includes('garbage')
+            ? '🗑️'
+            : categoryName.toLowerCase().includes('light')
+            ? '💡'
+            : '🛣️',
+          color: '#E6EEFF',
+          statusColor: '#315FD3',
+          imageUri: null,
+        };
+      });
+
+      setReports(formattedReports);
+
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  fetchCitizenReports();
+}, [currentScreen, citizenId]);
+
+// Fetch live complaints for Officer Dashboard
+useEffect(() => {
+  if (currentScreen !== 'officerDashboard') return;
+
+  const fetchOfficerReports = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/officer/complaints`
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof result.detail === 'string'
+            ? result.detail
+            : JSON.stringify(result.detail || result)
+        );
+      }
+
+      const statusMap = {
+        PENDING: 'Submitted',
+        ASSIGNED: 'Assigned',
+        IN_PROGRESS: 'In Progress',
+        RESOLVED: 'Resolved',
+        CONFIRMED: 'Resolved',
+        CLOSED: 'Resolved',
+        REOPENED: 'Submitted',
+      };
+
+      const formattedReports = (
+        result.complaints || []
+      ).map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description || '',
+        category: item.category || 'Other',
+        priority: item.priority || 'MEDIUM',
+
+        status:
+          statusMap[
+            (item.status || 'PENDING').toUpperCase()
+          ] || item.status,
+
+        location:
+          item.address ||
+          (
+            item.latitude != null &&
+            item.longitude != null
+              ? `${item.latitude}, ${item.longitude}`
+              : 'Not provided'
+          ),
+
+        department: item.department_name || '',
+        imageUri: null,
+      }));
+
+      setOfficerReports(formattedReports);
+      
+    } catch (error) {
+      Alert.alert(
+        'Officer Dashboard Error',
+        error.message
+      );
+    }
+  };
+
+  fetchOfficerReports();
+
+}, [currentScreen]);
+// Fetch live complaints for Admin Dashboard
+useEffect(() => {
+  if (currentScreen !== 'adminDashboard') return;
+
+  const fetchAdminReports = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/officer/complaints`
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof result.detail === 'string'
+            ? result.detail
+            : JSON.stringify(result.detail || result)
+        );
+      }
+
+      const statusMap = {
+        PENDING: 'Submitted',
+        ASSIGNED: 'Assigned',
+        IN_PROGRESS: 'In Progress',
+        RESOLVED: 'Resolved',
+        CONFIRMED: 'Resolved',
+        CLOSED: 'Resolved',
+        REOPENED: 'Submitted',
+      };
+
+      const formattedReports = (
+        result.complaints || []
+      ).map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description || '',
+        category: item.category || 'Other',
+        priority: item.priority || 'MEDIUM',
+
+        status:
+          statusMap[
+            (item.status || 'PENDING').toUpperCase()
+          ] || item.status,
+
+        location:
+          item.address ||
+          (
+            item.latitude != null &&
+            item.longitude != null
+              ? `${item.latitude}, ${item.longitude}`
+              : 'Not provided'
+          ),
+
+        department: item.department_name || '',
+        imageUri: null,
+      }));
+      setAdminReports(formattedReports);
+
+    } catch (error) {
+      Alert.alert(
+        'Admin Dashboard Error',
+        error.message
+      );
+    }
+  };
+
+  fetchAdminReports();
+
+}, [currentScreen]);
 // Save reports whenever the list changes
 useEffect(() => {
   if (!reportsLoaded) {
@@ -276,6 +493,7 @@ if (currentScreen === 'officerLogin') {
  
   // Officer Dashboard
 if (currentScreen === 'officerDashboard') {
+  
   return (
     <View
       style={{
@@ -327,34 +545,34 @@ if (currentScreen === 'officerDashboard') {
           justifyContent: 'space-between',
         }}
       >
-        {[
-          {
-            title: 'Total Reports',
-            count: reports.length,
-            color: '#E6EEFF',
-          },
-          {
-            title: 'Submitted',
-            count: reports.filter(
-              item => item.status === 'Submitted'
-            ).length,
-            color: '#FFF0D2',
-          },
-          {
-            title: 'In Progress',
-            count: reports.filter(
-              item => item.status === 'In Progress'
-            ).length,
-            color: '#E1F7F5',
-          },
-          {
-            title: 'Resolved',
-            count: reports.filter(
-              item => item.status === 'Resolved'
-            ).length,
-            color: '#E2F6E9',
-          },
-        ].map(item => (
+       {[
+  {
+    title: 'Total Reports',
+    count: officerReports.length,
+    color: '#E6EEFF',
+  },
+  {
+    title: 'Submitted',
+    count: officerReports.filter(
+      item => item.status === 'Submitted'
+    ).length,
+    color: '#FFF0D2',
+  },
+  {
+    title: 'In Progress',
+    count: officerReports.filter(
+      item => item.status === 'In Progress'
+    ).length,
+    color: '#E1F7F5',
+  },
+  {
+    title: 'Resolved',
+    count: officerReports.filter(
+      item => item.status === 'Resolved'
+    ).length,
+    color: '#E2F6E9',
+  },
+].map(item => (
           <View
             key={item.title}
             style={{
@@ -500,7 +718,7 @@ if (currentScreen === 'officerDashboard') {
 </View>
   {filteredOfficerReports.length === 0 ? (
     <Text style={{ color: '#718096', marginBottom: 12 }}>
-      {reports.length === 0
+      {officerReports.length === 0
         ? 'No reports available.'
         : 'No reports match your search or selected status.'}
     </Text>
@@ -764,24 +982,60 @@ if (currentScreen === 'officerDashboard') {
           ].map((action) => (
             <TouchableOpacity
               key={action.status}
-              onPress={() => {
-                setReports((previousReports) =>
-                  previousReports.map((report) =>
-                    report === item
-                      ? {
-                          ...report,
-                          status: action.status,
-                          statusColor: action.color,
-                        }
-                      : report
-                  )
-                );
+              onPress={async () => {
+  try {
+    const backendStatus = {
+      'Assigned': 'ASSIGNED',
+      'In Progress': 'IN_PROGRESS',
+      'Resolved': 'RESOLVED',
+    }[action.status];
 
-                Alert.alert(
-                  'Status Updated',
-                  `${item.title} marked as ${action.status}.`
-                );
-              }}
+    const response = await fetch(
+      `${API_URL}/complaints/${item.id}/status`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: backendStatus,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || 'Unable to update status.'
+      );
+    }
+
+    setOfficerReports((previousReports) =>
+      previousReports.map((report) =>
+        report.id === item.id
+          ? {
+              ...report,
+              status: action.status,
+              statusColor: action.color,
+            }
+          : report
+      )
+    );
+
+    Alert.alert(
+      'Status Updated',
+      `${item.title} marked as ${action.status}.`
+    );
+
+  } catch (error) {
+    Alert.alert(
+      'Status Update Failed',
+      error.message
+    );
+  }
+}}
+
               style={{
                 backgroundColor: action.color,
                 paddingVertical: 9,
@@ -871,7 +1125,19 @@ if (currentScreen === 'citizenLogin') {
           }}
         />
       )}
-
+<TextInput
+  placeholder="Phone Number"
+  value={citizenPhone}
+  onChangeText={setCitizenPhone}
+  keyboardType="phone-pad"
+  maxLength={10}
+  style={{
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 14,
+  }}
+/>
       <TextInput
         placeholder="Email Address"
         value={citizenEmail}
@@ -900,24 +1166,99 @@ if (currentScreen === 'citizenLogin') {
       />
 
       <TouchableOpacity
-        onPress={() => {
-          if (
-            !citizenEmail.trim() ||
-            !citizenPassword.trim() ||
-            (isCitizenSignup && !citizenName.trim())
-          ) {
-            Alert.alert(
-              'Missing Details',
-              'Please fill in all required fields.'
-            );
-            return;
-          }
+        onPress={async () => {
+         
+  if (
+    !citizenEmail.trim() ||
+    !citizenPassword.trim() ||
+    (isCitizenSignup &&
+      (!citizenName.trim() || !citizenPhone.trim()))
+  ) {
+    Alert.alert(
+      'Missing Details',
+      'Please fill in all required fields.'
+    );
+    return;
+  }
 
-          Alert.alert(
-            'Login UI Ready',
-            'Real account verification will be connected to the backend.'
-          );
-        }}
+  if (isCitizenSignup) {
+    try {
+      const response = await fetch(
+        `${API_URL}/auth/signup/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: citizenName.trim(),
+            email: citizenEmail.trim(),
+            password: citizenPassword,
+            phone: citizenPhone.trim(),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail || 'Signup failed.'
+        );
+      }
+
+      Alert.alert(
+        'Success',
+        'Your account has been created successfully!'
+      );
+
+      setIsCitizenSignup(false);
+      setCitizenPassword('');
+      setCitizenPhone('');
+
+    } catch (error) {
+      Alert.alert('Signup Failed', error.message);
+    }
+ } else {
+    try {
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: citizenEmail.trim(),
+            password: citizenPassword,
+          }),
+        }
+      );
+
+      const result = await response.json();
+     
+      if (!response.ok) {
+        throw new Error(
+          typeof result.detail === 'string'
+            ? result.detail
+            : 'Invalid email or password.'
+        );
+      }
+       setCitizenId(result.citizen_id);
+
+      Alert.alert(
+        'Login Successful',
+        'Welcome to CiviQ!'
+      );
+
+      setCitizenPassword('');
+      setCurrentScreen('home');
+
+    } catch (error) {
+      Alert.alert('Login Failed', error.message);
+    }
+  }
+}}
         style={{
           backgroundColor: '#13A879',
           padding: 16,
@@ -1035,7 +1376,8 @@ if (currentScreen === 'adminLogin') {
    
     
 if (currentScreen === 'adminDashboard') {
-  const allReports = reports || [];
+  
+  const allReports = adminReports || [];
 
   const submittedCount = allReports.filter(
     (r) => r.status === 'Submitted'
@@ -1049,22 +1391,47 @@ if (currentScreen === 'adminDashboard') {
     (r) => r.status === 'Resolved'
   ).length;
 
-  const filteredReports =
-    adminFilter === 'All'
-      ? allReports
-      : allReports.filter((r) => r.status === adminFilter);
+  
+
+
+const filteredReports = allReports.filter((r) => {
+  const statusMatch =
+    adminFilter === 'All' || r.status === adminFilter;
+
+  const priorityMatch =
+    adminPriorityFilter === 'All' ||
+    r.priority === adminPriorityFilter;
+
+  const departmentMatch =
+    adminDepartmentFilter === 'All' ||
+    r.department === adminDepartmentFilter;
+
+  return statusMatch && priorityMatch && departmentMatch;
+});
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '#F6F8FC' }}
       contentContainerStyle={{ padding: 20, paddingTop: 55 }}
     >
-      <TouchableOpacity onPress={() => setCurrentScreen('home')}>
-        <Text style={{ color: '#13A879', fontSize: 16 }}>
-          ← Back to Home
-        </Text>
-      </TouchableOpacity>
-
+      <TouchableOpacity
+  onPress={() => {
+    setAdminPassword('');
+    setAdminFilter('All');
+    setCurrentScreen('home');
+  }}
+  style={{
+    backgroundColor: '#172B4D',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  }}
+>
+  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+    ← Logout
+  </Text>
+</TouchableOpacity>
       <Text
         style={{
           fontSize: 28,
@@ -1116,7 +1483,7 @@ if (currentScreen === 'adminDashboard') {
         ))}
       </View>
 
-      <Text
+        <Text
         style={{
           fontSize: 20,
           fontWeight: '700',
@@ -1125,8 +1492,133 @@ if (currentScreen === 'adminDashboard') {
           marginBottom: 12,
         }}
       >
-        All Complaints
+        All Complaints</Text>        
+<Text
+  style={{
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#172B4D',
+    marginTop: 24,
+    marginBottom: 12,
+  }}
+>
+  User Management
+</Text>
+
+<View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+  <TouchableOpacity
+    onPress={() => setCurrentScreen('citizenManagement')}
+    style={{
+      flex: 1,
+      backgroundColor: '#E1F7F0',
+      padding: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+    }}
+  >
+    <Text style={{ fontSize: 22 }}>👥</Text>
+    <Text style={{ color: '#087F5B', fontWeight: '700', marginTop: 6 }}>
+      Citizens
+    </Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    onPress={() => setCurrentScreen('officerManagement')}
+    style={{
+      flex: 1,
+      backgroundColor: '#E8EEFF',
+      padding: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+    }}
+  >
+    <Text style={{ fontSize: 22 }}>🛡️</Text>
+    <Text style={{ color: '#254EDB', fontWeight: '700', marginTop: 6 }}>
+      Officers
+    </Text>
+  </TouchableOpacity>
+</View>
+
+    
+
+<Text
+  style={{
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#172B4D',
+    marginBottom: 10,
+  }}
+>
+  Filter by Priority
+</Text>
+
+<View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+  {['All', 'High', 'Medium', 'Low'].map((priority) => (
+    <TouchableOpacity
+      key={priority}
+      onPress={() => setAdminPriorityFilter(priority)}
+      style={{
+        paddingVertical: 9,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+        backgroundColor:
+          adminPriorityFilter === priority ? '#13A879' : 'white',
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+      }}
+    >
+      <Text
+        style={{
+          color: adminPriorityFilter === priority ? 'white' : '#334155',
+          fontWeight: '600',
+        }}
+      >
+        {priority}
       </Text>
+    </TouchableOpacity>
+  ))}
+</View>
+
+<Text
+  style={{
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#172B4D',
+    marginBottom: 10,
+  }}
+>
+  Filter by Department
+</Text>
+
+<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+  {['All', 'Roads', 'Water Supply', 'Sanitation', 'Streetlights'].map(
+    (department) => (
+      <TouchableOpacity
+        key={department}
+        onPress={() => setAdminDepartmentFilter(department)}
+        style={{
+          paddingVertical: 9,
+          paddingHorizontal: 12,
+          borderRadius: 20,
+          backgroundColor:
+            adminDepartmentFilter === department ? '#13A879' : 'white',
+          borderWidth: 1,
+          borderColor: '#D1D5DB',
+        }}
+      >
+        <Text
+          style={{
+            color: adminDepartmentFilter === department ? 'white' : '#334155',
+            fontWeight: '600',
+          }}
+        >
+          {department}
+        </Text>
+      </TouchableOpacity>
+    )
+  )}
+</View>
+
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
@@ -1202,22 +1694,278 @@ if (currentScreen === 'adminDashboard') {
                 {report.description}
               </Text>
             ) : null}
+            {report.department ? (
+  <Text style={{ color: '#64748B', marginTop: 6 }}>
+    Department: {report.department}
+  </Text>
+) : null}
+
+{report.officerRemarks ? (
+  <Text style={{ color: '#334155', marginTop: 6 }}>
+    Officer Remarks: {report.officerRemarks}
+  </Text>
+) : null}
+
+{report.resolutionPhoto ? (
+  <Image
+    source={{ uri: report.resolutionPhoto }}
+    style={{
+      width: '100%',
+      height: 160,
+      borderRadius: 10,
+      marginTop: 10,
+    }}
+    resizeMode="cover"
+  />
+) : null}
+<TouchableOpacity
+  onPress={() => {
+    setSelectedReport(report);
+    setCurrentScreen('reportDetails');
+  }}
+  style={{
+    backgroundColor: '#E1F7F0',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  }}
+>
+  <Text style={{ color: '#13A879', fontWeight: '700' }}>
+    View Details →
+  </Text>
+</TouchableOpacity>
           </View>
         ))
       )}
     </ScrollView>
   );
 }
-if (currentScreen === 'report') {
-    
 
-return (
-      <View style={{ flex: 1, backgroundColor: '#F6F8FC', padding: 24, paddingTop: 50 }}>
+if (currentScreen === 'citizenManagement') {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F6F8FC', padding: 24, paddingTop: 55 }}>
+      <TouchableOpacity onPress={() => setCurrentScreen('adminDashboard')}>
+        <Text style={{ color: '#13A879', fontSize: 16, fontWeight: '700' }}>
+          ← Back to Admin Dashboard
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28 }}>
+        Citizen Management 👥
+      </Text>
+
+      <Text style={{ color: '#64748B', marginTop: 8 }}>
+        Manage citizen accounts.
+      </Text>
+
+      <View style={{ backgroundColor: 'white', padding: 18, borderRadius: 14, marginTop: 24 }}>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#172B4D' }}>
+          Citizen Accounts
+        </Text>
+        <Text style={{ color: '#64748B', marginTop: 10 }}>
+          Actual citizen details will appear here after backend integration.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+if (currentScreen === 'officerManagement') {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F6F8FC', padding: 24, paddingTop: 55 }}>
+      <TouchableOpacity onPress={() => setCurrentScreen('adminDashboard')}>
+        <Text style={{ color: '#13A879', fontSize: 16, fontWeight: '700' }}>
+          ← Back to Admin Dashboard
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28 }}>
+        Officer Management 🛡️
+      </Text>
+
+      <Text style={{ color: '#64748B', marginTop: 8 }}>
+        Manage department officers.
+      </Text>
+
+      <View style={{ backgroundColor: 'white', padding: 18, borderRadius: 14, marginTop: 24 }}>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#172B4D' }}>
+          Officer Accounts
+        </Text>
+        <Text style={{ color: '#64748B', marginTop: 10 }}>
+          Actual officer details and department assignments will appear here after backend integration.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+if (currentScreen === 'map') {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F6F8FC', padding: 24, paddingTop: 55 }}>
+      <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+        <Text style={{ color: '#13A879', fontSize: 16, fontWeight: '700' }}>
+          ← Back to Home
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28 }}>
+        City Map 🗺️
+      </Text>
+
+      <Text style={{ color: '#64748B', marginTop: 8 }}>
+        Explore reported civic issues in your area.
+      </Text>
+
+      <View style={{
+        flex: 1,
+        backgroundColor: '#E1F7F0',
+        borderRadius: 18,
+        marginTop: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+      }}>
+        <Text style={{ fontSize: 55 }}>📍</Text>
+        <Text style={{ fontSize: 19, fontWeight: '700', color: '#172B4D', marginTop: 12 }}>
+          Map View
+        </Text>
+        <Text style={{ color: '#64748B', textAlign: 'center', marginTop: 8 }}>
+          Report locations will appear here.
+        </Text>
+      </View>
+    </View>
+  );
+}
+if (currentScreen === 'alerts') {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F6F8FC', padding: 24, paddingTop: 55 }}>
+      <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+        <Text style={{ color: '#13A879', fontSize: 16, fontWeight: '700' }}>
+          ← Back to Home
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28 }}>
+        Alerts 🔔
+      </Text>
+
+      <Text style={{ color: '#64748B', marginTop: 8 }}>
+        Stay updated about your reported issues.
+      </Text>
+
+      <View style={{
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 18,
+        marginTop: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+      }}>
+        <Text style={{ fontSize: 50 }}>🔔</Text>
+        <Text style={{ fontSize: 19, fontWeight: '700', color: '#172B4D', marginTop: 12 }}>
+          No New Alerts
+        </Text>
+        <Text style={{ color: '#64748B', textAlign: 'center', marginTop: 8 }}>
+          Notifications about your report updates will appear here.
+        </Text>
+      </View>
+    </View>
+  );
+}
+if (currentScreen === 'allCategories') {
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F6F8FC" />
+
+      <View style={{ padding: 24, paddingTop: 55 }}>
         <TouchableOpacity onPress={() => setCurrentScreen('home')}>
-          <Text style={{ color: '#13A879', fontSize: 17 }}>
+          <Text style={{ color: '#13A879', fontSize: 16, fontWeight: '700' }}>
             ← Back to Home
           </Text>
         </TouchableOpacity>
+
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28 }}>
+          All Categories
+        </Text>
+
+        <Text style={{ color: '#64748B', marginTop: 8 }}>
+          Select a category to report an issue.
+        </Text>
+      </View>
+
+      <View style={{ paddingHorizontal: 20 }}>
+        {categories.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => {
+              setCategory(item.title);
+              setCurrentScreen('report');
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              padding: 18,
+              borderRadius: 14,
+              marginBottom: 14,
+            }}
+          >
+            <View style={{
+              backgroundColor: item.color,
+              padding: 14,
+              borderRadius: 12,
+            }}>
+              <Text style={{ fontSize: 26 }}>{item.icon}</Text>
+            </View>
+
+            <Text style={{
+              fontSize: 17,
+              fontWeight: '700',
+              color: '#172B4D',
+              marginLeft: 16,
+            }}>
+              {item.title}
+            </Text>
+
+            <Text style={{ marginLeft: 'auto', color: '#13A879', fontSize: 20 }}>
+              →
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+if (currentScreen === 'report') {
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#F6F8FC' }}
+      contentContainerStyle={{
+        padding: 24,
+        paddingTop: 50,
+        paddingBottom: 60,
+      }}
+      keyboardShouldPersistTaps="handled"
+    ><TouchableOpacity
+  onPress={() => {
+    setAdminPassword('');
+    setAdminFilter('All');
+    setCurrentScreen('home');
+  }}
+  style={{
+    backgroundColor: '#172B4D',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  }}
+>
+  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+    ← Logout
+  </Text>
+</TouchableOpacity>
 
         <Text style={{ fontSize: 28, fontWeight: '800', color: '#172B4D', marginTop: 28, marginBottom: 20 }}>
           Report an Issue
@@ -1350,71 +2098,140 @@ return (
     Location: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
   </Text>
 )}<TouchableOpacity
-          onPress={() => {
-            if (!issueTitle.trim() || !category.trim() || !description.trim()) {
-              Alert.alert('Missing details', 'Please fill in all fields.');
-              return;
-            }
 
-            setReports((previousReports) => [
+  onPress={async () => {
+    
+    if (!issueTitle.trim() || !category.trim() || !description.trim()) {
+      Alert.alert('Missing details', 'Please fill in all fields.');
+      return;
+    }
+
+    try {
+if (!citizenId) {
+  throw new Error('Please login again. Citizen ID is missing.');
+}
+// AI Priority Prediction
+const aiResponse = await fetch(
+  `${API_URL}/predict-priority`,
   {
-    icon: category.toLowerCase().includes('water')
-      ? '💧'
-      : category.toLowerCase().includes('garbage')
-      ? '🗑️'
-      : category.toLowerCase().includes('light')
-      ? '💡'
-      : '🛣️',
-
-    title: issueTitle.trim(),
-    category: category.trim(),
-    location: location
-      ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
-      : 'Not provided',
-
-    status: 'Submitted',
-    priority: issuePriority,
-    color: '#E6EEFF',
-    statusColor: '#315FD3',
-    description: description.trim(),
-    imageUri: imageUri,
-  },
-  ...previousReports,
-]);
-
-Alert.alert(
-  'Success',
-  'Your report has been added to My Reports.'
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: description.trim(),
+    }),
+  }
 );
-            setIssueTitle('');
-            setCategory('');
-            setDescription('');
-            setCurrentScreen('home');
-            setImageUri(null);
-setLocation(null);
-          }}
-          style={{ backgroundColor: '#13A879', padding: 16, borderRadius: 12, alignItems: 'center' }}
-        >
-          <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
-            Submit Report
-          </Text>
-        </TouchableOpacity>
-      </View>
+
+const aiResult = await aiResponse.json();
+
+if (!aiResponse.ok) {
+  throw new Error('AI priority prediction failed.');
+}
+
+const predictedPriority = aiResult.predicted_priority;
+      const response = await fetch(`${API_URL}/complaints`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: issueTitle.trim(),
+          description: description.trim(),
+       
+          citizen_id: citizenId,
+          latitude: location ? location.latitude : null,
+          longitude: location ? location.longitude : null,
+          address: null,
+          category: category.trim(),
+          priority: predictedPriority,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail || result.message || 'Unable to submit complaint.'
+        );
+      }
+
+      const newReport = {
+        id: result.complaint_id,
+        icon: category.toLowerCase().includes('water')
+          ? '💧'
+          : category.toLowerCase().includes('garbage')
+          ? '🗑️'
+          : category.toLowerCase().includes('light')
+          ? '💡'
+          : '🛣️',
+        title: result.title || issueTitle.trim(),
+        category: result.predicted_category || category.trim(),
+        location: location
+          ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+          : 'Not provided',
+        status: 'Submitted',
+        priority: result.predicted_priority || predictedPriority,
+        department: result.assigned_department || '',
+        color: '#E6EEFF',
+        statusColor: '#315FD3',
+        description: description.trim(),
+        imageUri: imageUri,
+      };
+
+      setReports((previousReports) => [
+        newReport,
+        ...previousReports,
+      ]);
+
+      Alert.alert('Success', 'Your complaint has been submitted successfully.');
+
+      setIssueTitle('');
+      setCategory('');
+      setDescription('');
+      setCurrentScreen('home');
+      setImageUri(null);
+      setLocation(null);
+
+    } catch (error) {
+      Alert.alert(
+        'Submission Failed',
+        error.message || 'Please check your internet connection and try again.'
+      );
+    }
+  }}
+  style={{
+    backgroundColor: '#13A879',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  }}
+>
+  <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+    Submit Report
+  </Text>
+</TouchableOpacity>
+           </ScrollView>
     );
   }
 
+  if (currentScreen === 'reportDetails') {
+    return (
+  <ScrollView
+    style={{
+      flex: 1,
+      backgroundColor: '#F6F8FC',
+    }}
+    contentContainerStyle={{
+      padding: 24,
+      paddingTop: 50,
+      paddingBottom: 60,
+    }}
+    showsVerticalScrollIndicator={false}
+  >
+      
     
-      if (currentScreen === 'reportDetails') {
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#F6F8FC',
-        padding: 24,
-        paddingTop: 50,
-      }}
-    >
       <TouchableOpacity
         onPress={() => setCurrentScreen('home')}
       >
@@ -1519,6 +2336,12 @@ setLocation(null);
           <Text style={{ fontSize: 16, marginBottom: 20 }}>
             {selectedReport.location || 'Not provided'}
           </Text>
+          <Text style={{ color: '#718096', marginBottom: 6 }}>
+  Priority
+</Text>
+<Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 20 }}>
+  {selectedReport.priority || 'Medium'}
+</Text>
 
           <Text style={{ color: '#718096', marginBottom: 6 }}>
             Current Status
@@ -1532,117 +2355,89 @@ setLocation(null);
           >
             {selectedReport.status || 'Submitted'}
           </Text>
-        </View>
-      ) : (
-        <Text>No report selected.</Text>
-      )}
-    </View>
-  );
-}
-if (currentScreen === 'myReports') {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#F6F8FC',
-          padding: 24,
-          paddingTop: 50,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => setCurrentScreen('home')}
-        >
-          <Text
-            style={{
-              color: '#13A879',
-              fontSize: 17,
-              fontWeight: '600',
-            }}
-          >
-            ← Back to Home
-          </Text>
-        </TouchableOpacity>
-
-        <Text
-          style={{
-            fontSize: 28,
-            fontWeight: '800',
-            color: '#172B4D',
-            marginTop: 28,
-          }}
-        >
-          My Reports
-        </Text>
-
-        <View style={{ flex: 1, marginTop: 24, paddingBottom: 20 }}>
-  {reports.length === 0 ? (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingBottom: 60,
-      }}
-    >
-      <Text style={{ fontSize: 50, marginBottom: 16 }}>
-        📋
-      </Text>
-
-      <Text
-        style={{
-          fontSize: 21,
-          fontWeight: '700',
-          color: '#172B4D',
-          marginBottom: 8,
-        }}
-      >
-        No reports yet
-      </Text>
-
-      <Text
-        style={{
-          fontSize: 15,
-          color: '#718096',
-          textAlign: 'center',
-          marginBottom: 24,
-        }}
-      >
-        Your submitted civic issues will appear here.
-      </Text>
-
-      <TouchableOpacity
-        onPress={() => setCurrentScreen('report')}
-        style={{
-          backgroundColor: '#13A879',
-          paddingVertical: 14,
-          paddingHorizontal: 24,
-          borderRadius: 12,
-        }}
-      >
-        <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
-          + Report an Issue
-        </Text>
-      </TouchableOpacity>
-    <TouchableOpacity
-  onPress={() => {
-    setAdminPassword('');
-    setCurrentScreen('adminLogin');
-  }}
-  style={{
-    backgroundColor: '#172B4D',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginTop: 12,
-    alignItems: 'center',
-  }}
->
-  <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
-    🛡️ Admin Login
+          {/* Complaint Tracking Timeline */}
+<View style={{ marginTop: 28 }}>
+  <Text
+    style={{
+      fontSize: 19,
+      fontWeight: '800',
+      color: '#172B4D',
+      marginBottom: 20,
+    }}
+  >
+    Complaint Progress
   </Text>
-</TouchableOpacity>
+
+  {['Submitted', 'Assigned', 'In Progress', 'Resolved'].map(
+    (step, index) => {
+      const statusOrder = {
+        'Submitted': 0,
+        'Assigned': 1,
+        'In Progress': 2,
+        'Resolved': 3,
+      };
+
+      const currentStep =
+        statusOrder[selectedReport.status || 'Submitted'] ?? 0;
+
+      const completed = index <= currentStep;
+
+      return (
+        <View
+          key={step}
+          style={{ flexDirection: 'row', minHeight: 65 }}
+        >
+          <View style={{ alignItems: 'center', width: 28 }}>
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: completed ? '#13A879' : '#D1D5DB',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 13 }}>
+                {completed ? '✓' : ''}
+              </Text>
+            </View>
+
+            {index !== 3 && (
+              <View
+                style={{
+                  width: 2,
+                  flex: 1,
+                  backgroundColor: completed ? '#13A879' : '#D1D5DB',
+                }}
+              />
+            )}
+          </View>
+
+          <View style={{ marginLeft: 14, paddingBottom: 20 }}>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '700',
+                color: completed ? '#13A879' : '#94A3B8',
+              }}
+            >
+              {step}
+            </Text>
+          </View>
+                  </View>
+      );
+    }
+  )}
 </View>
-  ) : (
+</View>
+) : null}
+</ScrollView>
+);
+}
+
+if (currentScreen === 'myReports') {
+  return (
     <ScrollView showsVerticalScrollIndicator={false}>
       {reports.map((item, index) => (
         <TouchableOpacity
@@ -1680,12 +2475,13 @@ if (currentScreen === 'myReports') {
         </TouchableOpacity>
       ))}
     </ScrollView>
-  )}
-</View>
-      </View>
+  
+
+            
     );
-  }return (
-    <View style={styles.container}>
+  }
+  return (
+   <View style={{ flex: 1, backgroundColor: '#F6F8FC' }}>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="#F6F8FC"
@@ -1693,7 +2489,7 @@ if (currentScreen === 'myReports') {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+       contentContainerStyle={{ padding: 24, paddingBottom: 50 }}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -1818,7 +2614,7 @@ if (currentScreen === 'myReports') {
           </Text>
 
           <TouchableOpacity
-            onPress={() => showMessage('All Categories')}
+           onPress={() => setCurrentScreen('allCategories')}
           >
             <Text style={styles.seeAll}>See all →</Text>
           </TouchableOpacity>
@@ -1827,11 +2623,11 @@ if (currentScreen === 'myReports') {
         <View style={styles.categoryGrid}>
           {categories.map((item) => (
             <TouchableOpacity
-              key={item.title}
+              key={item.id}
               style={styles.categoryCard}
              onPress={() => {
-  setSelectedReport(item);
-  setCurrentScreen('reportDetails');
+  setCategory(item.title);
+  setCurrentScreen('report');
 }}
             >
               <View
@@ -1867,7 +2663,7 @@ if (currentScreen === 'myReports') {
           </TouchableOpacity>
         </View>
 
-        {reports.map((item) => (
+       {reports.slice(0, 3).map((item) => (
           <TouchableOpacity
             key={item.title}
             style={styles.reportCard}
@@ -1927,7 +2723,7 @@ if (currentScreen === 'myReports') {
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => showMessage('Home')}
+         onPress={() => setCurrentScreen('map')}
         >
           <Text style={styles.navIcon}>⌂</Text>
           <Text style={styles.navActiveText}>Home</Text>
@@ -1935,7 +2731,7 @@ if (currentScreen === 'myReports') {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => showMessage('Map')}
+          onPress={() => setCurrentScreen('map')}
         >
           <Text style={styles.navIcon}>📍</Text>
           <Text style={styles.navText}>Map</Text>
@@ -1950,7 +2746,7 @@ if (currentScreen === 'myReports') {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => showMessage('Notifications')}
+          onPress={() => setCurrentScreen('alerts')}
         >
           <Text style={styles.navIcon}>♧</Text>
           <Text style={styles.navText}>Alerts</Text>
